@@ -1,4 +1,4 @@
-name: Build APK
+name: Rename and Build VortBench APK
 
 on:
   push:
@@ -18,7 +18,40 @@ jobs:
         run: |
           mkdir -p project
           unzip -q benchy.zip -d project
-          ls -la project
+
+      - name: Rename Benchy to VortBench
+        working-directory: project
+        run: |
+          # 1. Replace the package ID and every name in text files
+          #    (code, strings.xml, welcome/popup text, notification text)
+          grep -rIil --exclude-dir=build --exclude-dir=.gradle 'benchy' . \
+            | xargs -r sed -i \
+                -e 's/com\.benchy\.X/com.vort.bench/g' \
+                -e 's/BENCHY/VORTBENCH/g' \
+                -e 's/Benchy/VortBench/g' \
+                -e 's/benchy/vortbench/g'
+
+          # 2. Move Kotlin/Java source folders from com/benchy/X to com/vort/bench
+          find . -type d -path '*/com/benchy/X' -not -path '*/build/*' | while read -r d; do
+            base="${d%/com/benchy/X}"
+            mkdir -p "$base/com/vort/bench"
+            cp -r "$d/." "$base/com/vort/bench/"
+            rm -rf "$base/com/benchy"
+          done
+
+          # 3. Rename files whose names contain Benchy (any case)
+          find . -depth -iname '*benchy*' -not -path '*/build/*' | while read -r p; do
+            n="$(dirname "$p")/$(basename "$p" | sed 's/BENCHY/VORTBENCH/g; s/Benchy/VortBench/g; s/benchy/vortbench/g')"
+            if [ "$p" != "$n" ]; then mv "$p" "$n"; fi
+          done
+
+          # 4. Fail the build if any old name is still present (any case)
+          if grep -rIil --exclude-dir=build --exclude-dir=.gradle 'benchy' .; then
+            echo "Old name still found in the files above"
+            exit 1
+          fi
+          echo "Rename complete: package is com.vort.bench"
+          find . -path '*/com/vort/bench' -type d
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -54,6 +87,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: benchy-debug-apk
+          name: vortbench-debug-apk
           path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
