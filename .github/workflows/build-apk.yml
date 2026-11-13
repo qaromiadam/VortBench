@@ -22,10 +22,11 @@ jobs:
       - name: Rename Benchy to VortBench
         working-directory: project
         run: |
-          # 1. Replace the package ID and every name in text files
-          #    (code, strings.xml, welcome/popup text, notification text)
+          # 1. Replace the package ID and every name in text files.
+          #    The JNI rule must come first, or the generic rule renames it before it matches.
           grep -rIil --exclude-dir=build --exclude-dir=.gradle 'benchy' . \
             | xargs -r sed -i \
+                -e 's/Java_com_benchy_X_/Java_com_vort_bench_/g' \
                 -e 's/com\.benchy\.X/com.vort.bench/g' \
                 -e 's/BENCHY/VORTBENCH/g' \
                 -e 's/Benchy/VortBench/g' \
@@ -52,6 +53,9 @@ jobs:
           fi
           echo "Rename complete: package is com.vort.bench"
           find . -path '*/com/vort/bench' -type d
+
+          # 5. Confirm the JNI function names match the new package
+          grep -n "Java_com_vort_bench_" app/src/main/cpp/*.cpp | head -5
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
